@@ -229,17 +229,18 @@ data _<=_ : Nat -> Nat -> Set where
 all0<=4 : Vec (0 <= 4) 1
 all0<=4 = o' (o' (o' (o' oz))) ,- []
 
-all1<=4 : Vec (1 <= 4) 2
-all1<=4 = os (o' (o' (o' oz))) ,- o' (os (o' (o' oz))) ,- []
+all1<=4 : Vec (1 <= 4) 4
+all1<=4 = o' (o' (o' (os oz))) ,- o' (o' (os (o' oz))) ,- o' (os (o' (o' oz))) ,- os (o' (o' (o' oz))) ,- []
 
-all2<=4 : Vec (2 <= 4) 0
-all2<=4 = []
+all2<=4 : Vec (2 <= 4) 6
+all2<=4 = os (os (o' (o' oz))) ,- os (o' (os (o' oz))) ,- o' (os (os (o' oz))) ,- os (o' (o' (os oz))) ,- 
+          os (o' (o' (os oz))) ,- o' (o' (os (os oz))) ,- []
        
-all3<=4 : Vec (3 <= 4) zero
-all3<=4 = []
+all3<=4 : Vec (3 <= 4) 4
+all3<=4 = os (os (os (o' oz))) ,- os (os (o' (os oz))) ,- os (o' (os (os oz))) ,- o' (os (os (os oz))) ,- []
 
-all4<=4 : Vec (4 <= 4) zero
-all4<=4 = []
+all4<=4 : Vec (4 <= 4) 1
+all4<=4 = os (os (os (os oz))) ,- []
 
 -- Prove the following. A massive case analysis "rant" is fine.
 
