@@ -422,20 +422,18 @@ assoc-o>> : {q p n m : Nat}(th0 : q <= p)(th1 : p <= n)(th2 : n <= m) ->
 assoc-o>> oz oz oz = refl oz 
 assoc-o>> oz oz (o' th2) with assoc-o>> oz oz th2 
 ... | z = refl o' =$= z
+assoc-o>> oz (o' th1) (os th2) rewrite assoc-o>> oz th1 th2 = refl (o' (oz o>> (th1 o>> th2)))
+assoc-o>> oz (o' th1) (o' th2) rewrite assoc-o>> oz (o' th1) th2 = refl (o' (oz o>> (o' th1 o>> th2)))
 assoc-o>> (os th0) (os th1) (os th2) rewrite assoc-o>> th0 th1 th2 = refl (os (th0 o>> (th1 o>> th2)))
 assoc-o>> (os th0) (os th1) (o' th2) with assoc-o>> (os th0) (os th1) th2 
 ... | z = refl o' =$= z
+assoc-o>> (os th0) (o' th1) (os th2) rewrite assoc-o>> (os th0) th1 th2 = refl (o' (os th0 o>> (th1 o>> th2)))
+assoc-o>> (os th0) (o' th1) (o' th2) rewrite assoc-o>> (os th0) (o' th1) th2 = refl (o' (os th0 o>> (o' th1 o>> th2)))
 assoc-o>> (o' th0) (os th1) (os th2) rewrite assoc-o>> th0 th1 th2 = refl (o' (th0 o>> (th1 o>> th2)))
 assoc-o>> (o' th0) (os th1) (o' th2) with assoc-o>> (o' th0) (os th1) th2
 ... | z = refl o' =$= z
-assoc-o>> oz (o' th1) (os th2) rewrite assoc-o>> oz th1 th2 = refl (o' (oz o>> (th1 o>> th2)))
-assoc-o>> (os th0) (o' th1) (os th2) rewrite assoc-o>> (os th0) th1 th2 = refl (o' (os th0 o>> (th1 o>> th2)))
 assoc-o>> (o' th0) (o' th1) (os th2) rewrite assoc-o>> (o' th0) th1 th2 = refl (o' (o' th0 o>> (th1 o>> th2)))
-assoc-o>> oz (o' th1) (o' th2) rewrite assoc-o>> oz (o' th1) th2 = refl (o' (oz o>> (o' th1 o>> th2)))
-assoc-o>> (os th0) (o' th1) (o' th2) rewrite assoc-o>> (os th0) (o' th1) th2 = refl (o' (os th0 o>> (o' th1 o>> th2)))
 assoc-o>> (o' th0) (o' th1) (o' th2) rewrite assoc-o>> (o' th0) (o' th1) th2 = refl (o' (o' th0 o>> (o' th1 o>> th2)))
-
---??--------------------------------------------------------------------------
 
 
 ------------------------------------------------------------------------------
