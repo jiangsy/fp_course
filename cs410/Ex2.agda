@@ -53,7 +53,7 @@ OPE = record
 VEC : Nat -> SET => SET                -- Vectors of length n...
 VEC n = record
   { F-Obj       = \ X -> Vec X n       -- ...give a functor from SET to SET...
-  ; F-map       = \ f xs -> vMap f xs  -- ...doing vMap to arrows.
+  ; F-map       = \ f xs -> vMap f xs  --.doing vMap to arrows.
                                        -- Now prove the laws.
   ; F-map-id~>  = extensionality \ xs -> vMapIdFact (\x -> refl x) xs
   ; F-map->~>   = \ f g -> extensionality \ xs -> sym (vMapCpFact g f (g << f) (\ x -> refl (g (f x))) xs)
@@ -337,6 +337,8 @@ all f [] <> = <>
 all f (s ,- ss) (t , ts) = f s t , all f ss ts 
 
 
+
+
 ALL : (X : Set) -> (X ->SET) => (List X ->SET)
 ALL X = record
   { F-Obj      = All
@@ -437,21 +439,35 @@ footprints = (4 , 6 , refl 10) 8>< strVec "foot"
 -- Using what you already built for ALL, show that every Cutting C gives us
 -- a functor between categories of indexed sets.
 
+
+
 CUTTING : {I O : Set}(C : I |> O) -> (I ->SET) => (O ->SET)
 CUTTING {I}{O} C = record
   { F-Obj = Cutting C
-  ; F-map = {!!}
-  ; F-map-id~> = extensionality \ o -> extensionality \ { (c 8>< ps) ->
-     {!!} }
+  ; F-map = mapHelper
+  ; F-map-id~> = \ {T} -> extensionality \ o -> extensionality \ { (cut 8>< pieces) ->
+   mapHelper (Category.id~> (I ->SET)) o (cut 8>< pieces) 
+   =[ refl (cut 8>< all (Category.id~> (I ->SET)) (inners cut) pieces) >= 
+   cut 8>< all ((Category.id~> (I ->SET))) (inners cut) pieces 
+   =[ refl (\ x -> cut 8>< x) =$= ((F-map-id~> =$ inners cut) =$ pieces)  >= 
+   (cut 8>< pieces) 
+   [QED] }
   ; F-map->~> = \ f g ->
-     extensionality \ o -> extensionality \ { (c 8>< ps) ->
-     {!!} } 
+     extensionality \ o -> extensionality \ { (c 8>< ps) ->  
+     mapHelper (((I ->SET) Category.>~> f) g) o (c 8>< ps) 
+     =[ refl (c 8>< all (((I ->SET) Category.>~> f) g) (inners c) ps) >= 
+     (c 8>< all (λ i x → g i (f i x)) (inners c) ps) 
+     =[ refl (\ x -> c 8>< x) =$= ((F-map->~> f g =$ inners c) =$ ps) >=
+     (c 8>< all g (inners c) (all f (inners c) ps))
+     =[ refl (c 8>< all g (inners c) (all f (inners c) ps)) >=
+     ((O ->SET) Category.>~> mapHelper f) (mapHelper g) o (c 8>< ps) 
+     [QED]
+     } 
   } where
   open _|>_ C
   open _=>_ (ALL I)
-
---??--------------------------------------------------------------------------
-
+  mapHelper : {S T : I → Set} → [ S -:> T ] → [ Cutting C S -:> Cutting C T ]
+  mapHelper f o (cut 8>< pieces) = cut 8>< all f _ pieces
 
 ------------------------------------------------------------------------------
 -- Interiors
@@ -546,11 +562,15 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
 
     allInteriorFoldLaw : (pq : [ P -:> Q ])(qalg : Algebra (CUTTING C) Q) ->
       allInteriorFold pq qalg == all (interiorFold pq qalg)
-    allInteriorFoldLaw pq qalg = extensionality \ is -> extensionality \ ps ->
-      {!!}
+    allInteriorFoldLaw pq qalg = extensionality \ is -> extensionality \ ps -> help pq qalg is ps
       where
-      -- helper lemmas go here
-
+      help : (pq : [ P -:> Q ])
+         (qalg : Algebra (CUTTING C) Q) (is : List I)
+         (ps : All (Interior C P) is) →
+       allInteriorFold pq qalg is ps == all (interiorFold pq qalg) is ps
+      help pq qalg [] ps = refl <>
+      help pq qalg (i ,- is) (p , ps) rewrite help pq qalg is ps = 
+        refl (interiorFold pq qalg i p , all (interiorFold pq qalg) is ps)
 --??--------------------------------------------------------------------------
 
     -- Now, do me a favour and prove this extremely useful fact.
@@ -567,8 +587,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
         qalg i (c 8>< all f (inners c) ps) == f i < c 8>< ps >) ->
       (i : I)(pi : Interior C P i) -> interiorFold pq qalg i pi == f i pi
 
-    interiorFoldLemma pq qalg f base step i pi = {!!}
-
+    interiorFoldLemma pq qalg f base step i pi = {! ?  !}
 --??--------------------------------------------------------------------------
 
     -- We'll use it in this form:
@@ -638,17 +657,14 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
 
   interior : {X Y : I -> Set} ->
              [ X -:> Y ] -> [ Interior C X -:> Interior C Y ]
-  interior f = {!!}
+  interior {X} {Y} f = interiorBind \ { i -> λ x → tile (f i x)} 
 
   -- using interiorBindFusion, prove the following law for "fold after map"
 
   interiorFoldFusion : {P Q R : I -> Set}
     (pq : [ P -:> Q ])(qr : [ Q -:> R ])(ralg : Algebra (CUTTING C) R) ->
     (interior pq >~> interiorFold qr ralg) == interiorFold (pq >~> qr) ralg
-  interiorFoldFusion pq qr ralg =
-    interior pq >~> interiorFold qr ralg
-      =[ {!!} >=
-    interiorFold (pq >~> qr) ralg [QED]
+  interiorFoldFusion pq qr ralg = {!   !}
     where open _=>_ (ALL I)
 
   -- and now, using interiorFoldFusion if it helps,
@@ -658,7 +674,8 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   INTERIOR = record
     { F-Obj      = Interior C
     ; F-map      = interior
-    ; F-map-id~> = {!!}
+    ; F-map-id~> = extensionality \ i -> extensionality \ {(tile x) → {!   !}
+                                                         ; < x > → {!   !}}
     ; F-map->~>  = {!!}
     } where open _=>_ (ALL I)
 
@@ -674,14 +691,15 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
 
   WRAP : ID ~~> INTERIOR
   WRAP = record
-    { xf         = {!!}
-    ; naturality = {!!}
-    }
+    { xf         = λ i x → tile x
+    ; naturality = λ f → extensionality \ i -> extensionality \ x -> {! help  !}
+    } where 
+  
 
   -- use interiorBind to define the following
   FLATTEN : (INTERIOR >=> INTERIOR) ~~> INTERIOR
   FLATTEN = record
-    { xf         = {!!}
+    { xf         = \ i x -> {!  !} 
     ; naturality = {!!}
     }
 
@@ -706,8 +724,7 @@ open INTERIORFOLD
 --??--2.14-(2)----------------------------------------------------------------
 
 NatCutVecAlg : {X : Set} -> Algebra (CUTTING NatCut) (Vec X)
-NatCutVecAlg n xsc = {!!}
-
+NatCutVecAlg d (m , n , m+n=d 8>< vm , vn , _) rewrite (sym m+n=d) = vm +V vn
 --??--------------------------------------------------------------------------
 
 -- Check that it puts things together suitably when you evaluate this:
@@ -732,8 +749,10 @@ module CHOICE where
 
   _+C_ : {I J : Set} ->  I |> I ->  J |> J  ->  (I * J) |> (I * J)
   Cuts   (P +C Q) (i , j) = Cuts P i + Cuts Q j
-  inners (P +C Q) = {!!}
-
+  inners (P +C Q){i , j} 
+   = \ { (inl x) → list (\ i -> i , j) (inners P x)
+       ; (inr x) → list (\ j -> i , j) (inners Q x)}
+  --                                                                                                          ; (inr x) → {! inners x !}} 
 --??--------------------------------------------------------------------------
 
 open CHOICE
@@ -782,7 +801,8 @@ rectangle = < inr (4 , 2 , refl _)
 
 vecAll : {I : Set}{P : I -> Set}{is : List I}{n : Nat} ->
          All (\ i -> Vec (P i) n) is -> Vec (All P is) n
-vecAll {is = is} pss = {!!}
+vecAll {is = []} pss = vPure <>
+vecAll {is = x ,- is} (ps , pss) = vec _,_ ps $V vecAll {is = is} pss
 
 -- Given vecAll, show that algebra for any cutting can be lifted
 -- to an algebra on vectors.
@@ -790,15 +810,15 @@ vecAll {is = is} pss = {!!}
 VecLiftAlg : {I : Set}(C : I |> I){X : I -> Set}
              (alg : Algebra (CUTTING C) X){n : Nat} ->
              Algebra (CUTTING C) (\ i -> Vec (X i) n)
-VecLiftAlg C alg i (c 8>< pss) = {!!}
+VecLiftAlg C alg i (c 8>< pss) = {!   !}
 
 -- Now show that you can build an algebra for matrices
 -- which handles cuts in either dimension,
 -- combining them either horizontally or vertically!
 
 NatCut2DMatAlg : {X : Set} -> Algebra (CUTTING NatCut2D) (Matrix X)
-NatCut2DMatAlg _ (inl c 8>< ms) = {!!}
-NatCut2DMatAlg _ (inr c 8>< ms) = {!!}
+NatCut2DMatAlg _ (inl c 8>< ms) = {!   !}
+NatCut2DMatAlg _ (inr c 8>< ms) = {!   !}
 
 --??--------------------------------------------------------------------------
 
