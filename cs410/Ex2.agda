@@ -117,7 +117,7 @@ LIST-MONOID X =            -- Show that _+L_ is the operation of a monoid,...
   ; _~>_         = \ _ _ -> List X
   ; id~>         = []
   ; _>~>_        = _+L_
-  ; law-id~>>~>  = \ xs -> refl xs
+  ; law-id~>>~>  = \ xs -> refl xs
   ; law->~>id~>  = +LId 
   ; law->~>>~>   = +LAssoc
   } where
@@ -241,7 +241,7 @@ module LIST-MONAD where
       concat (list concat xsss)
     multMultHelper [] = refl []
     multMultHelper ([] ,- xss) rewrite multMultHelper xss = refl (concat (list concat xss)) 
-    multMultHelper ((x ,- xs) ,- xss) rewrite multMultHelper (xs ,- xss) rewrite +LAssoc x (concat xs) (concat (list concat xss)) = refl (x +L concat xs +L concat (list concat xss))
+    multMultHelper ((x ,- xs) ,- xss) rewrite multMultHelper (xs ,- xss) rewrite +LAssoc x (concat xs) (concat (list concat xss)) = refl (x +L concat xs +L concat (list concat xss))
 
 -- open LIST-MONAD
 
@@ -587,7 +587,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
       (i : I)(pi : Interior C P i) -> interiorFold pq qalg i pi == f i pi
 
     interiorFoldLemma pq qalg f base step i (tile x) = base i x
-    interiorFoldLemma pq qalg f base step i < c 8>< pcs >  = {!   !}
+    interiorFoldLemma pq qalg f base step i < c 8>< pcs > rewrite allInteriorFoldLaw pq qalg = {!   !}
 --??--------------------------------------------------------------------------
     -- We'll use it in this form:
 
@@ -656,16 +656,17 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
 
   interior : {X Y : I -> Set} ->
              [ X -:> Y ] -> [ Interior C X -:> Interior C Y ]
-  interior {X} {Y} f = interiorBind \ { i -> \ x -> tile (f i x)} 
+  interior f = interiorBind \ i -> \ x -> tile (f i x)
 
   -- using interiorBindFusion, prove the following law for "fold after map"
-
+  -- interiorFold (λ i x → interiorFold yz zalg i (f i x)) zalg ==
+  --   (λ i x → interiorFold yz zalg i (interiorBind f i x))
   interiorFoldFusion : {P Q R : I -> Set}
     (pq : [ P -:> Q ])(qr : [ Q -:> R ])(ralg : Algebra (CUTTING C) R) ->
     (interior pq >~> interiorFold qr ralg) == interiorFold (pq >~> qr) ralg
   interiorFoldFusion pq qr ralg =
     interior pq >~> interiorFold qr ralg
-      =[ {!   !} >=
+      =[ {!  !} >=
     interiorFold (pq >~> qr) ralg [QED]
     where open _=>_ (ALL I)
 
@@ -676,11 +677,23 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   INTERIOR = record
     { F-Obj      = Interior C
     ; F-map      = interior
-    ; F-map-id~> = extensionality \ i -> extensionality \ {(tile x) → {!   !}
-                                                         ; < x > → {!   !}}
-    ; F-map->~>  = {!!}
-    } where open _=>_ (ALL I)
-
+    ; F-map-id~> = extensionality \ i -> extensionality \ x -> help i x
+    ; F-map->~>  = \ f g -> extensionality \ i -> extensionality \ x -> help' f g i x 
+    } where 
+      help : {T : Category.Obj (I ->SET)} (i : I)
+         (x : Interior C T i) →
+       interior (Category.id~> (I ->SET)) i x == x
+      help i x = {!   !}
+      help' : {R S T : Category.Obj (I ->SET)}
+          (f : [ R -:> S ]) (g : [ S -:> T ])
+          (i : I) (x : Interior C R i) →
+        interior (λ i x → g i (f i x)) i x ==
+          interior g i (interior f i x)
+      help' f g i x = interior (λ i₁ x₁ → g i₁ (f i₁ x₁)) i x
+        =[ {!   !} >=
+         interior g i (interior f i x)
+        [QED]
+      open _=>_ (ALL I)
 --??--------------------------------------------------------------------------
 
   -- Now let's build the Monad.
@@ -693,15 +706,20 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
 
   WRAP : ID ~~> INTERIOR
   WRAP = record
-    { xf         = λ i x → tile x
-    ; naturality = λ f → extensionality \ i -> extensionality \ x -> {! help  !}
+    { xf         = \ i x -> tile x
+    ; naturality = λ f → extensionality \ i -> extensionality \ x  -> help f i x
     } where 
-  
+    help : {X Y : Category.Obj (I ->SET)}
+          (f : [ X -:> Y ]) (i : I) (x : X i) ->
+          (interior f) i (tile x) == tile (f i x)
+    help {X} {Y} f i x with interior f i (tile x)
+    ... | z = refl z
 
   -- use interiorBind to define the following
   FLATTEN : (INTERIOR >=> INTERIOR) ~~> INTERIOR
   FLATTEN = record
-    { xf         = \ i x -> {!  !} 
+    { xf         = \ { i (tile x) → x
+                     ; i < cut 8>< pieces > → {!   !}}
     ; naturality = {!!}
     }
 
@@ -812,7 +830,7 @@ vecAll {is = x ,- is} (ps , pss) = vec _,_ ps $V vecAll {is = is} pss
 VecLiftAlg : {I : Set}(C : I |> I){X : I -> Set}
              (alg : Algebra (CUTTING C) X){n : Nat} ->
              Algebra (CUTTING C) (\ i -> Vec (X i) n)
-VecLiftAlg C alg i (c 8>< pcs) = {!   !}
+VecLiftAlg record { Cuts = Cuts ; inners = inners } alg i (cut 8>< pieces) = {!   !}
 
 -- Now show that you can build an algebra for matrices
 -- which handles cuts in either dimension,
