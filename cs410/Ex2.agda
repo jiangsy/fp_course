@@ -440,7 +440,6 @@ footprints = (4 , 6 , refl 10) 8>< strVec "foot"
 -- a functor between categories of indexed sets.
 
 
-
 CUTTING : {I O : Set}(C : I |> O) -> (I ->SET) => (O ->SET)
 CUTTING {I}{O} C = record
   { F-Obj = Cutting C
@@ -587,9 +586,9 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
         qalg i (c 8>< all f (inners c) ps) == f i < c 8>< ps >) ->
       (i : I)(pi : Interior C P i) -> interiorFold pq qalg i pi == f i pi
 
-    interiorFoldLemma pq qalg f base step i pi = {! ?  !}
+    interiorFoldLemma pq qalg f base step i (tile x) = base i x
+    interiorFoldLemma pq qalg f base step i < c 8>< pcs >  = {!   !}
 --??--------------------------------------------------------------------------
-
     -- We'll use it in this form:
 
     interiorFoldLaw : (pq : [ P -:> Q ])(qalg : Algebra (CUTTING C) Q)
@@ -657,14 +656,17 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
 
   interior : {X Y : I -> Set} ->
              [ X -:> Y ] -> [ Interior C X -:> Interior C Y ]
-  interior {X} {Y} f = interiorBind \ { i -> λ x → tile (f i x)} 
+  interior {X} {Y} f = interiorBind \ { i -> \ x -> tile (f i x)} 
 
   -- using interiorBindFusion, prove the following law for "fold after map"
 
   interiorFoldFusion : {P Q R : I -> Set}
     (pq : [ P -:> Q ])(qr : [ Q -:> R ])(ralg : Algebra (CUTTING C) R) ->
     (interior pq >~> interiorFold qr ralg) == interiorFold (pq >~> qr) ralg
-  interiorFoldFusion pq qr ralg = {!   !}
+  interiorFoldFusion pq qr ralg =
+    interior pq >~> interiorFold qr ralg
+      =[ {!   !} >=
+    interiorFold (pq >~> qr) ralg [QED]
     where open _=>_ (ALL I)
 
   -- and now, using interiorFoldFusion if it helps,
@@ -749,7 +751,7 @@ module CHOICE where
 
   _+C_ : {I J : Set} ->  I |> I ->  J |> J  ->  (I * J) |> (I * J)
   Cuts   (P +C Q) (i , j) = Cuts P i + Cuts Q j
-  inners (P +C Q){i , j} 
+  inners (P +C Q) {i , j} 
    = \ { (inl x) → list (\ i -> i , j) (inners P x)
        ; (inr x) → list (\ j -> i , j) (inners Q x)}
   --                                                                                                          ; (inr x) → {! inners x !}} 
@@ -810,15 +812,15 @@ vecAll {is = x ,- is} (ps , pss) = vec _,_ ps $V vecAll {is = is} pss
 VecLiftAlg : {I : Set}(C : I |> I){X : I -> Set}
              (alg : Algebra (CUTTING C) X){n : Nat} ->
              Algebra (CUTTING C) (\ i -> Vec (X i) n)
-VecLiftAlg C alg i (c 8>< pss) = {!   !}
+VecLiftAlg C alg i (c 8>< pcs) = {!   !}
 
 -- Now show that you can build an algebra for matrices
 -- which handles cuts in either dimension,
 -- combining them either horizontally or vertically!
 
 NatCut2DMatAlg : {X : Set} -> Algebra (CUTTING NatCut2D) (Matrix X)
-NatCut2DMatAlg _ (inl c 8>< ms) = {!   !}
-NatCut2DMatAlg _ (inr c 8>< ms) = {!   !}
+NatCut2DMatAlg {x} (i , j) (inl (i1 , i2 , i1+i2=i) 8>< mi1 , mi2 , _) rewrite (sym i1+i2=i) = (vec _+V_ mi1) $V mi2
+NatCut2DMatAlg {x} (i , j) (inr (j1 , j2 , j1+j2=j) 8>< mj1 , mj2 , _) rewrite (sym j1+j2=j) = mj1 +V mj2
 
 --??--------------------------------------------------------------------------
 
