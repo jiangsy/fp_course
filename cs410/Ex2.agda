@@ -152,7 +152,7 @@ LIST = record
   mapId feq [] = refl []
   mapId feq (x ,- xs) rewrite mapId feq xs rewrite feq x = refl (x ,- xs)
 
-  mapCp : {X Y Z : Set}(f : X -> Y)(g : Y -> Z) -> (xs : List X) -> list (\ x → g (f x)) xs == list g (list f xs)  
+  mapCp : {X Y Z : Set}(f : X -> Y)(g : Y -> Z) -> (xs : List X) -> list (\ x -> g (f x)) xs == list g (list f xs)  
   mapCp f g [] = refl []
   mapCp f g (x ,- xs) rewrite mapCp f g xs = refl (g (f x) ,- list g (list f xs))
 
@@ -185,7 +185,7 @@ LIST+L {X}{Y} f = record
 SINGLE : ID ~~> LIST
 SINGLE = record
   { xf          = \ x -> x ,- []      -- turn a value into a singleton list
-  ; naturality  = λ f → refl (λ x → f x ,- [])
+  ; naturality  = \  f -> refl (\  x -> f x ,- [])
   }
 
 --??--------------------------------------------------------------------------
@@ -338,6 +338,12 @@ all f (s ,- ss) (t , ts) = f s t , all f ss ts
 
 
 
+allId~> : {X : Set}{S : X -> Set} -> (xs : List X) -> (ts : All S xs) -> all (\ i x -> x) xs ts == ts
+allId~> [] ys = refl <>
+allId~> (x ,- xs) (y , ys) rewrite allId~> xs ys = refl (y , ys)
+all>~> : {X : Set}{R S T : X -> Set} -> (f : [ R -:> S ] ) -> (g : [ S -:> T ] ) -> (xs : List X) -> (ys : All R xs) -> all (\ i x -> g i (f i x)) xs ys == all g xs (all f xs ys)
+all>~> f g [] ys = refl <>
+all>~> f g (x ,- xs) (y , ys) rewrite all>~> f g xs ys = refl (g x (f x y) , all g xs (all f xs ys))
 
 ALL : (X : Set) -> (X ->SET) => (List X ->SET)
 ALL X = record
@@ -346,12 +352,7 @@ ALL X = record
   ; F-map-id~> = extensionality \ xs -> extensionality \ ys -> allId~> xs ys 
   ; F-map->~>  = \ f g ->  extensionality \ xs -> extensionality \ ys -> all>~> f g xs ys
   } where
-  allId~> : {X : Set}{S : X -> Set} -> (xs : List X) -> (ts : All S xs) -> all (\ i x -> x) xs ts == ts
-  allId~> [] ys = refl <>
-  allId~> (x ,- xs) (y , ys) rewrite allId~> xs ys = refl (y , ys)
-  all>~> : {X : Set}{R S T : X -> Set} -> (f : [ R -:> S ] ) -> (g : [ S -:> T ] ) -> (xs : List X) -> (ys : All R xs) -> all (\ i x -> g i (f i x)) xs ys == all g xs (all f xs ys)
-  all>~> f g [] ys = refl <>
-  all>~> f g (x ,- xs) (y , ys) rewrite all>~> f g xs ys = refl (g x (f x y) , all g xs (all f xs ys))
+
 --??--------------------------------------------------------------------------
 
 
@@ -455,7 +456,7 @@ CUTTING {I}{O} C = record
      extensionality \ o -> extensionality \ { (c 8>< ps) ->  
      mapHelper (((I ->SET) Category.>~> f) g) o (c 8>< ps) 
      =[ refl (c 8>< all (((I ->SET) Category.>~> f) g) (inners c) ps) >= 
-     (c 8>< all (λ i x → g i (f i x)) (inners c) ps) 
+     (c 8>< all (\  i x -> g i (f i x)) (inners c) ps) 
      =[ refl (\ x -> c 8>< x) =$= ((F-map->~> f g =$ inners c) =$ ps) >=
      (c 8>< all g (inners c) (all f (inners c) ps))
      =[ refl (c 8>< all g (inners c) (all f (inners c) ps)) >=
@@ -465,7 +466,7 @@ CUTTING {I}{O} C = record
   } where
   open _|>_ C
   open _=>_ (ALL I)
-  mapHelper : {S T : I → Set} → [ S -:> T ] → [ Cutting C S -:> Cutting C T ]
+  mapHelper : {S T : I -> Set} -> [ S -:> T ] -> [ Cutting C S -:> Cutting C T ]
   mapHelper f o (cut 8>< pieces) = cut 8>< all f _ pieces
 
 ------------------------------------------------------------------------------
@@ -543,8 +544,8 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
       [ All (Interior C P) -:> All Q ]
 
     interiorFold pq qalg i (tile p)      = pq i p
-    interiorFold pq qalg i < c 8>< pis > =
-      qalg i (c 8>< allInteriorFold pq qalg (inners c) pis)
+    interiorFold pq qalg i < c 8>< pcs > =
+      qalg i (c 8>< allInteriorFold pq qalg (inners c) pcs)
 
     -- recursively turn all the sub-interiors into Qs
     allInteriorFold pq qalg []        <>         = <>
@@ -565,7 +566,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
       where
       help : (pq : [ P -:> Q ])
          (qalg : Algebra (CUTTING C) Q) (is : List I)
-         (ps : All (Interior C P) is) →
+         (ps : All (Interior C P) is) ->
        allInteriorFold pq qalg is ps == all (interiorFold pq qalg) is ps
       help pq qalg [] ps = refl <>
       help pq qalg (i ,- is) (p , ps) rewrite help pq qalg is ps = 
@@ -577,7 +578,6 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
     -- built with interiorFold.
 
 --??--2.11-(3)----------------------------------------------------------------
-
     interiorFoldLemma :
       (pq : [ P -:> Q ])(qalg : Algebra (CUTTING C) Q)
       (f : [ Interior C P -:> Q ]) ->
@@ -586,8 +586,27 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
         qalg i (c 8>< all f (inners c) ps) == f i < c 8>< ps >) ->
       (i : I)(pi : Interior C P i) -> interiorFold pq qalg i pi == f i pi
 
+    -- have to do 'mutual recursion' since interiorFold is defined that way
+    allinteriorFoldLemma : (pq : [ P -:> Q ])(qalg : Algebra (CUTTING C) Q)
+      (f : [ Interior C P -:> Q ]) ->
+      ((i : I)(p : P i) -> pq i p == f i (tile p)) ->
+      ((i : I)(c : Cuts i)(ps : All (Interior C P) (inners c)) ->
+      qalg i (c 8>< all f (inners c) ps) == f i < c 8>< ps >) ->
+      (is : List I) -> (ps : All (Interior C P) is) ->
+      all (interiorFold pq qalg) is ps == all f is ps
+
     interiorFoldLemma pq qalg f base step i (tile x) = base i x
-    interiorFoldLemma pq qalg f base step i < c 8>< pcs > rewrite allInteriorFoldLaw pq qalg = {!   !}
+    interiorFoldLemma pq qalg f base step i < c 8>< pcs > 
+      rewrite (sym (step i c pcs)) 
+      rewrite allInteriorFoldLaw pq qalg 
+      rewrite allinteriorFoldLemma pq qalg f base step (inners c) pcs = refl (qalg i (c 8>< all f (inners c) pcs))
+      
+    allinteriorFoldLemma pq qalg f base step [] ps = refl <>
+    allinteriorFoldLemma pq qalg f base step (i ,- is) (p , ps) 
+      rewrite interiorFoldLemma pq qalg f base step i p 
+      rewrite allinteriorFoldLemma pq qalg f base step is ps = refl (f i p , all f is ps)
+
+
 --??--------------------------------------------------------------------------
     -- We'll use it in this form:
 
@@ -659,8 +678,10 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   interior f = interiorBind \ i -> \ x -> tile (f i x)
 
   -- using interiorBindFusion, prove the following law for "fold after map"
-  -- interiorFold (λ i x → interiorFold yz zalg i (f i x)) zalg ==
-  --   (λ i x → interiorFold yz zalg i (interiorBind f i x))
+  -- interiorFold (\  i x -> interiorFold yz zalg i (f i x)) zalg ==
+  --   (\  i x -> interiorFold yz zalg i (interiorBind f i x))
+  -- interiorFold (\  i x -> qr i (pq i x)) ralg == 
+  --   (\  i x -> interiorFold qr ralg i (interior pq i x))
   interiorFoldFusion : {P Q R : I -> Set}
     (pq : [ P -:> Q ])(qr : [ Q -:> R ])(ralg : Algebra (CUTTING C) R) ->
     (interior pq >~> interiorFold qr ralg) == interiorFold (pq >~> qr) ralg
@@ -681,15 +702,32 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
     ; F-map->~>  = \ f g -> extensionality \ i -> extensionality \ x -> help' f g i x 
     } where 
       help : {T : Category.Obj (I ->SET)} (i : I)
-         (x : Interior C T i) →
-       interior (Category.id~> (I ->SET)) i x == x
-      help i x = {!   !}
+         (x : Interior C T i) ->
+       interior (\ i x -> x) i x == x
+      help i (tile x) = refl (tile x)
+      help i < cut 8>< pieces > = 
+        interior (\ i x -> x) i < cut 8>< pieces >
+        =[ refl (interiorBind (\ i x -> tile x) i < cut 8>< pieces >) >=
+        interiorBind (\ i x -> tile x) i < cut 8>< pieces >
+        =[ refl (interiorFold (\ i x -> tile x) (\ i -> <_>) i < cut 8>< pieces >) >=
+        interiorFold (\ i x -> tile x) (\ i -> <_>) i < cut 8>< pieces >
+        =[ refl <_> =$= (refl (cut 8><_) =$= (allInteriorFoldLaw (\ i x -> tile x) (\ i -> <_>) =$ (inners cut) =$ pieces ))  >= 
+        < cut 8>< all (interiorFold (\ i x -> tile x) (\ i -> <_>)) (inners cut) pieces >
+        =[ refl <_> =$= (refl (cut 8><_) =$= 
+          allinteriorFoldLemma 
+            (\ i x -> tile x)  (\ i -> <_>)  (\ i x -> x) 
+            (\ i p -> refl (tile p)) (\ i cut ps -> refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) ps)))
+            (inners cut) pieces
+          )>=
+        < cut 8>< all (\ i x -> x) (inners cut) pieces >
+        =[ refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) pieces)) >=
+        < cut 8>< pieces > [QED]
       help' : {R S T : Category.Obj (I ->SET)}
           (f : [ R -:> S ]) (g : [ S -:> T ])
-          (i : I) (x : Interior C R i) →
-        interior (λ i x → g i (f i x)) i x ==
+          (i : I) (x : Interior C R i) ->
+        interior (\  i x -> g i (f i x)) i x ==
           interior g i (interior f i x)
-      help' f g i x = interior (λ i₁ x₁ → g i₁ (f i₁ x₁)) i x
+      help' f g i x = interior (\  i x₁ -> g i (f i x₁)) i x
         =[ {!   !} >=
          interior g i (interior f i x)
         [QED]
@@ -707,7 +745,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   WRAP : ID ~~> INTERIOR
   WRAP = record
     { xf         = \ i x -> tile x
-    ; naturality = λ f → extensionality \ i -> extensionality \ x  -> help f i x
+    ; naturality = \ f -> extensionality \ i -> extensionality \ x  -> help f i x
     } where 
     help : {X Y : Category.Obj (I ->SET)}
           (f : [ X -:> Y ]) (i : I) (x : X i) ->
@@ -718,10 +756,9 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   -- use interiorBind to define the following
   FLATTEN : (INTERIOR >=> INTERIOR) ~~> INTERIOR
   FLATTEN = record
-    { xf         = \ { i (tile x) → x
-                     ; i < cut 8>< pieces > → {!   !}}
+    { xf         = {!   !}
     ; naturality = {!!}
-    }
+    } where
 
   INTERIOR-Monad : Monad
   INTERIOR-Monad = record
@@ -770,9 +807,9 @@ module CHOICE where
   _+C_ : {I J : Set} ->  I |> I ->  J |> J  ->  (I * J) |> (I * J)
   Cuts   (P +C Q) (i , j) = Cuts P i + Cuts Q j
   inners (P +C Q) {i , j} 
-   = \ { (inl x) → list (\ i -> i , j) (inners P x)
-       ; (inr x) → list (\ j -> i , j) (inners Q x)}
-  --                                                                                                          ; (inr x) → {! inners x !}} 
+   = \ { (inl x) -> list (\ i -> i , j) (inners P x)
+       ; (inr x) -> list (\ j -> i , j) (inners Q x)}
+  --                                                                                                          ; (inr x) -> {! inners x !}} 
 --??--------------------------------------------------------------------------
 
 open CHOICE
@@ -830,7 +867,7 @@ vecAll {is = x ,- is} (ps , pss) = vec _,_ ps $V vecAll {is = is} pss
 VecLiftAlg : {I : Set}(C : I |> I){X : I -> Set}
              (alg : Algebra (CUTTING C) X){n : Nat} ->
              Algebra (CUTTING C) (\ i -> Vec (X i) n)
-VecLiftAlg record { Cuts = Cuts ; inners = inners } alg i (cut 8>< pieces) = {!   !}
+VecLiftAlg C alg i (c 8>< pss) = {!   !}
 
 -- Now show that you can build an algebra for matrices
 -- which handles cuts in either dimension,
