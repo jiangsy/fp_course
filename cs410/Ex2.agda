@@ -707,10 +707,8 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
       help i (tile x) = refl (tile x)
       help i < cut 8>< pieces > = 
         interior (\ i x -> x) i < cut 8>< pieces >
-        =[ refl (interiorBind (\ i x -> tile x) i < cut 8>< pieces >) >=
-        interiorBind (\ i x -> tile x) i < cut 8>< pieces >
-        =[ refl (interiorFold (\ i x -> tile x) (\ i -> <_>) i < cut 8>< pieces >) >=
-        interiorFold (\ i x -> tile x) (\ i -> <_>) i < cut 8>< pieces >
+        =[ refl _ >= interiorBind (\ i x -> tile x) i < cut 8>< pieces >
+        =[ refl _ >= interiorFold (\ i x -> tile x) (\ i -> <_>) i < cut 8>< pieces >
         =[ refl <_> =$= (refl (cut 8><_) =$= (allInteriorFoldLaw (\ i x -> tile x) (\ i -> <_>) =$ (inners cut) =$ pieces ))  >= 
         < cut 8>< all (interiorFold (\ i x -> tile x) (\ i -> <_>)) (inners cut) pieces >
         =[ refl <_> =$= (refl (cut 8><_) =$= 
@@ -728,7 +726,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
         interior (\  i x -> g i (f i x)) i x ==
           interior g i (interior f i x)
       help' f g i x = interior (\  i x₁ -> g i (f i x₁)) i x
-        =[ {!   !} >=
+        =[ {! x !} >=
          interior g i (interior f i x)
         [QED]
       open _=>_ (ALL I)
@@ -756,7 +754,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   -- use interiorBind to define the following
   FLATTEN : (INTERIOR >=> INTERIOR) ~~> INTERIOR
   FLATTEN = record
-    { xf         = {!   !}
+    { xf         = \ i x -> interiorFold (\ i x -> x) cut' i x
     ; naturality = {!!}
     } where
 
