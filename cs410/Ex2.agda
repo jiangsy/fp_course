@@ -710,6 +710,8 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
       help : {T : I -> Set} (i : I)
          (x : Interior C T i) ->
        interior (\ i x -> x) i x == x
+
+      -- TODO : merge two branches
       help i (tile x) = refl (tile x)
       help i < cut 8>< pieces > = 
         interior (\ i x -> x) i < cut 8>< pieces >
@@ -901,11 +903,13 @@ vecAll {is = x ,- is} (ps , pss) = vec _,_ ps $V vecAll {is = is} pss
 VecLiftAlg : {I : Set}(C : I |> I){X : I -> Set}
              (alg : Algebra (CUTTING C) X){n : Nat} ->
              Algebra (CUTTING C) (\ i -> Vec (X i) n)
-VecLiftAlg C alg i (c 8>< pss) = {!   !}
-
--- Now show that you can build an algebra for matrices
--- which handles cuts in either dimension,
--- combining them either horizontally or vertically!
+VecLiftAlg C alg {n} i (c 8>< pss) = help i (vecAll pss) alg
+  where 
+    help : ∀ {I} {C : I |> I} {X : I → Set} {n} (i : I)
+            {cut = c : _|>_.Cuts C i} →
+          Vec (All X (_|>_.inners C c)) n → ((i₂ : I) → Cutting C X i₂ → X i₂) → Vec (X i) n
+    help i {cut = c} [] alg = []
+    help i {cut = c} (ps ,- pss) alg = alg i (c 8>< ps) ,- help i {cut = c} pss alg
 
 NatCut2DMatAlg : {X : Set} -> Algebra (CUTTING NatCut2D) (Matrix X)
 NatCut2DMatAlg {x} (i , j) (inl (i1 , i2 , i1+i2=i) 8>< mi1 , mi2 , _) rewrite (sym i1+i2=i) = (vec _+V_ mi1) $V mi2
