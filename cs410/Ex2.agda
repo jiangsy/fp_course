@@ -645,6 +645,8 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   -- I'll do the proof as it's a bit hairy. You've given me all I need.
   -- Note that I don't use extensionality, just laws that relate functions.
 
+  -- interiorFold (\  i x -> interiorFold yz zalg i (f i x)) zalg ==
+  --   (\  i x -> interiorFold yz zalg i (interiorBind f i x))
   interiorBindFusion f yz zalg =
     (interiorBind f >~> interiorFold yz zalg)
       =< interiorFoldLaw
@@ -678,8 +680,6 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   interior f = interiorBind \ i -> \ x -> tile (f i x)
 
   -- using interiorBindFusion, prove the following law for "fold after map"
-  -- interiorFold (\  i x -> interiorFold yz zalg i (f i x)) zalg ==
-  --   (\  i x -> interiorFold yz zalg i (interiorBind f i x))
   -- interiorFold (\  i x -> qr i (pq i x)) ralg == 
   --   (\  i x -> interiorFold qr ralg i (interior pq i x))
   interiorFoldFusion : {P Q R : I -> Set}
@@ -687,10 +687,16 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
     (interior pq >~> interiorFold qr ralg) == interiorFold (pq >~> qr) ralg
   interiorFoldFusion pq qr ralg =
     interior pq >~> interiorFold qr ralg
-      =[ {!  !} >=
+    =[ refl _ >=
+    (\  i x -> interiorFold qr ralg i (interiorBind (\ i x -> tile (pq i x)) i x)) 
+    =[ interiorBindFusion (\ i x -> tile (pq i x)) qr ralg >= 
+    interiorFold (\ i x -> interiorFold qr ralg i (tile (pq i x))) ralg 
+    =[ refl _ >=
     interiorFold (pq >~> qr) ralg [QED]
     where open _=>_ (ALL I)
 
+  -- interiorFoldFusion : {P Q R : I -> Set}
+  --   (pq : [ P -:> Q ])(qr : [ Q -:> R ])(ralg : Algebra (CUTTING C) R) 
   -- and now, using interiorFoldFusion if it helps,
   -- complete the functor construction
 
@@ -699,9 +705,9 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
     { F-Obj      = Interior C
     ; F-map      = interior
     ; F-map-id~> = extensionality \ i -> extensionality \ x -> help i x
-    ; F-map->~>  = \ f g -> extensionality \ i -> extensionality \ x -> help' f g i x 
+    ; F-map->~>  = \ f g -> help' f g
     } where 
-      help : {T : Category.Obj (I ->SET)} (i : I)
+      help : {T : I -> Set} (i : I)
          (x : Interior C T i) ->
        interior (\ i x -> x) i x == x
       help i (tile x) = refl (tile x)
@@ -720,14 +726,22 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
         < cut 8>< all (\ i x -> x) (inners cut) pieces >
         =[ refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) pieces)) >=
         < cut 8>< pieces > [QED]
-      help' : {R S T : Category.Obj (I ->SET)}
-          (f : [ R -:> S ]) (g : [ S -:> T ])
-          (i : I) (x : Interior C R i) ->
-        interior (\  i x -> g i (f i x)) i x ==
-          interior g i (interior f i x)
-      help' f g i x = interior (\  i x₁ -> g i (f i x₁)) i x
-        =[ {! x !} >=
-         interior g i (interior f i x)
+      help' : {R S T : I -> Set}
+          (rs : [ R -:> S ]) (st : [ S -:> T ]) -> 
+        interior (\  i x -> st i (rs i x)) ==
+          (\  i x -> interior st i (interior rs i x))
+      help' rs st = 
+        interior (\  i x -> st i (rs i x))
+        =[ refl _ >=
+        interiorBind (\ i -> \ x -> tile (st i (rs i x)))
+        =[ refl _ >=
+        interiorFold (\ i -> \ x -> tile (st i (rs i x))) (\ i -> <_>)
+        =[ sym (interiorFoldFusion rs (\ i x -> tile (st i x)) (\ i -> <_>))  >=
+        (\ i x -> interiorFold (\ i x -> tile (st i x)) (\ i -> <_>) i (interior rs i x))
+        =< refl _ ]=
+        (\ i x -> interiorBind (\  i x -> tile (st i x)) i (interior rs i x))
+        =< refl _  ]=
+        (\ i x -> interior st i (interior rs i x))
         [QED]
       open _=>_ (ALL I)
 --??--------------------------------------------------------------------------
@@ -745,27 +759,49 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
     { xf         = \ i x -> tile x
     ; naturality = \ f -> extensionality \ i -> extensionality \ x  -> help f i x
     } where 
-    help : {X Y : Category.Obj (I ->SET)}
+    help : {X Y : I -> Set}
           (f : [ X -:> Y ]) (i : I) (x : X i) ->
           (interior f) i (tile x) == tile (f i x)
     help {X} {Y} f i x with interior f i (tile x)
     ... | z = refl z
 
   -- use interiorBind to define the following
+  -- above hint is misleading when implementing
   FLATTEN : (INTERIOR >=> INTERIOR) ~~> INTERIOR
   FLATTEN = record
-    { xf         = \ i x -> interiorFold (\ i x -> x) cut' i x
-    ; naturality = {!!}
+    { -- xf      = \ i x -> interiorFold (\ i x -> x) cut' i x
+      xf         = interiorBind (\ i x -> x)
+    ; naturality = \ f -> extensionality \ i -> extensionality \ x -> help f i x
     } where
+    help : {X Y : I -> Set}
+         (f : [ X -:> Y ]) (i : I) (x :  Interior C (Interior C X) i ) ->
+       interiorBind (\ i x -> x) i (interior (interior f) i x) ==
+       interior f i (interiorBind (\ i x -> x) i x)
+    help f i x = {!   !}
 
   INTERIOR-Monad : Monad
   INTERIOR-Monad = record
     { unit = WRAP
     ; mult = FLATTEN
-    ; unitMult = {!!}
-    ; multUnit = {!!}
+    ; unitMult = extensionality \ i -> extensionality \ x -> refl x
+    ; multUnit = extensionality \ i -> extensionality \ x -> help i x
     ; multMult = {!!}
     } where
+
+    help : {X : I -> Set } (i : I)
+         (x : Interior C X i ) ->
+      interiorBind (\ i x -> x) i (interior (\ i x -> tile x) i x) == x
+    help i x = 
+      interiorBind (λ i₁ x₁ → x₁) i (interior (λ i₁ x₁ → tile x₁) i x)
+      =[ refl _ >=
+      interiorFold (λ i₁ x₁ → x₁) (\ i -> <_>) i (interior (λ i₁ x₁ → tile x₁) i x)
+      =[ ( (interiorFoldFusion (\ i x -> tile x) (\ i x -> x) (\ i -> <_>))) =$ i =$ x >=
+      interiorFold (λ i x → tile x) (λ i → <_>) i x
+      =[ interiorFoldLemma 
+            (\ i x -> tile x)  (\ i -> <_>)  (\ i x -> x) 
+            (\ i p -> refl (tile p)) (\ i cut ps -> refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) ps))) i x >=
+      x [QED]
+
     open _=>_ INTERIOR
 
 --??--------------------------------------------------------------------------
