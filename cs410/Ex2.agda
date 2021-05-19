@@ -140,21 +140,22 @@ mapConcat : {X Y : Set}(f : X -> Y) -> (xs ys : List X) -> (list f xs +L list f 
 mapConcat f [] ys = refl (list f ys)
 mapConcat f (x ,- xs) ys rewrite mapConcat f xs ys = refl (f x ,- list f (xs +L ys))
 
+
 LIST : SET => SET
 LIST = record
   { F-Obj       = List
   ; F-map       = list
-  ; F-map-id~>  = extensionality \ xs -> mapId (\ x -> refl x) xs
-  ; F-map->~>   = \ f g -> extensionality \ xs -> mapCp f g xs
+  ; F-map-id~>  = extensionality \ xs -> F-map-id~>Help (\ x -> refl x) xs
+  ; F-map->~>   = \ f g -> extensionality \ xs -> F-map->~>Help f g xs
   } where
-  mapId :  {X : Set}{f : X -> X}(feq : (x : X) -> f x == x) ->
-            (xs : List X) -> list f xs == xs
-  mapId feq [] = refl []
-  mapId feq (x ,- xs) rewrite mapId feq xs rewrite feq x = refl (x ,- xs)
+  F-map-id~>Help :  {X : Set}{f : X -> X}(feq : (x : X) -> f x == x) ->
+    (xs : List X) -> list f xs == xs
+  F-map-id~>Help feq [] = refl []
+  F-map-id~>Help feq (x ,- xs) rewrite F-map-id~>Help feq xs rewrite feq x = refl (x ,- xs)
 
-  mapCp : {X Y Z : Set}(f : X -> Y)(g : Y -> Z) -> (xs : List X) -> list (\ x -> g (f x)) xs == list g (list f xs)  
-  mapCp f g [] = refl []
-  mapCp f g (x ,- xs) rewrite mapCp f g xs = refl (g (f x) ,- list g (list f xs))
+  F-map->~>Help : {X Y Z : Set}(f : X -> Y)(g : Y -> Z) -> (xs : List X) -> list (\ x -> g (f x)) xs == list g (list f xs)  
+  F-map->~>Help f g [] = refl []
+  F-map->~>Help f g (x ,- xs) rewrite F-map->~>Help f g xs = refl (g (f x) ,- list g (list f xs))
 
   -- useful helper proofs (lemmas) go here
 
@@ -231,17 +232,17 @@ module LIST-MONAD where
     { unit      = SINGLE
     ; mult      = CONCAT
     ; unitMult  = extensionality \ xs -> +LId xs
-    ; multUnit  = extensionality \ xs -> multUnitHelper xs
-    ; multMult  = extensionality \ xs -> multMultHelper xs
+    ; multUnit  = extensionality \ xs -> multUnitHelp xs
+    ; multMult  = extensionality \ xs -> multMultHelp xs
     } where
-    multUnitHelper : {X : Set} -> (xs : List X) -> concat (list (\ x -> x ,- []) xs) == xs
-    multUnitHelper [] = refl []
-    multUnitHelper (x ,- xs) rewrite multUnitHelper xs = refl (x ,- xs)
-    multMultHelper : {X : Set} -> (xsss : List (List (List X))) -> concat (concat xsss) ==
+    multUnitHelp : {X : Set} -> (xs : List X) -> concat (list (\ x -> x ,- []) xs) == xs
+    multUnitHelp [] = refl []
+    multUnitHelp (x ,- xs) rewrite multUnitHelp xs = refl (x ,- xs)
+    multMultHelp : {X : Set} -> (xsss : List (List (List X))) -> concat (concat xsss) ==
       concat (list concat xsss)
-    multMultHelper [] = refl []
-    multMultHelper ([] ,- xss) rewrite multMultHelper xss = refl (concat (list concat xss)) 
-    multMultHelper ((x ,- xs) ,- xss) rewrite multMultHelper (xs ,- xss) rewrite +LAssoc x (concat xs) (concat (list concat xss)) = refl (x +L concat xs +L concat (list concat xss))
+    multMultHelp [] = refl []
+    multMultHelp ([] ,- xss) rewrite multMultHelp xss = refl (concat (list concat xss)) 
+    multMultHelp ((x ,- xs) ,- xss) rewrite multMultHelp (xs ,- xss) rewrite +LAssoc x (concat xs) (concat (list concat xss)) = refl (x +L concat xs +L concat (list concat xss))
 
 -- open LIST-MONAD
 
@@ -444,9 +445,9 @@ footprints = (4 , 6 , refl 10) 8>< strVec "foot"
 CUTTING : {I O : Set}(C : I |> O) -> (I ->SET) => (O ->SET)
 CUTTING {I}{O} C = record
   { F-Obj = Cutting C
-  ; F-map = mapHelper
+  ; F-map = mapHelp
   ; F-map-id~> = \ {T} -> extensionality \ o -> extensionality \ { (cut 8>< pieces) ->
-   mapHelper (Category.id~> (I ->SET)) o (cut 8>< pieces) 
+   mapHelp (Category.id~> (I ->SET)) o (cut 8>< pieces) 
    =[ refl (cut 8>< all (Category.id~> (I ->SET)) (inners cut) pieces) >= 
    cut 8>< all ((Category.id~> (I ->SET))) (inners cut) pieces 
    =[ refl (\ x -> cut 8>< x) =$= ((F-map-id~> =$ inners cut) =$ pieces)  >= 
@@ -454,20 +455,20 @@ CUTTING {I}{O} C = record
    [QED] }
   ; F-map->~> = \ f g ->
      extensionality \ o -> extensionality \ { (c 8>< ps) ->  
-     mapHelper (((I ->SET) Category.>~> f) g) o (c 8>< ps) 
+     mapHelp (((I ->SET) Category.>~> f) g) o (c 8>< ps) 
      =[ refl (c 8>< all (((I ->SET) Category.>~> f) g) (inners c) ps) >= 
      (c 8>< all (\  i x -> g i (f i x)) (inners c) ps) 
      =[ refl (\ x -> c 8>< x) =$= ((F-map->~> f g =$ inners c) =$ ps) >=
      (c 8>< all g (inners c) (all f (inners c) ps))
      =[ refl (c 8>< all g (inners c) (all f (inners c) ps)) >=
-     ((O ->SET) Category.>~> mapHelper f) (mapHelper g) o (c 8>< ps) 
+     ((O ->SET) Category.>~> mapHelp f) (mapHelp g) o (c 8>< ps) 
      [QED]
      } 
   } where
   open _|>_ C
   open _=>_ (ALL I)
-  mapHelper : {S T : I -> Set} -> [ S -:> T ] -> [ Cutting C S -:> Cutting C T ]
-  mapHelper f o (cut 8>< pieces) = cut 8>< all f _ pieces
+  mapHelp : {S T : I -> Set} -> [ S -:> T ] -> [ Cutting C S -:> Cutting C T ]
+  mapHelp f o (cut 8>< pieces) = cut 8>< all f _ pieces
 
 ------------------------------------------------------------------------------
 -- Interiors
@@ -687,11 +688,7 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
     (interior pq >~> interiorFold qr ralg) == interiorFold (pq >~> qr) ralg
   interiorFoldFusion pq qr ralg =
     interior pq >~> interiorFold qr ralg
-    =[ refl _ >=
-    (\  i x -> interiorFold qr ralg i (interiorBind (\ i x -> tile (pq i x)) i x)) 
     =[ interiorBindFusion (\ i x -> tile (pq i x)) qr ralg >= 
-    interiorFold (\ i x -> interiorFold qr ralg i (tile (pq i x))) ralg 
-    =[ refl _ >=
     interiorFold (pq >~> qr) ralg [QED]
     where open _=>_ (ALL I)
 
@@ -704,45 +701,26 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   INTERIOR = record
     { F-Obj      = Interior C
     ; F-map      = interior
-    ; F-map-id~> = extensionality \ i -> extensionality \ x -> help i x
-    ; F-map->~>  = \ f g -> help' f g
+    ; F-map-id~> = extensionality \ i -> extensionality \ x -> F-map-id~>Help i x
+    ; F-map->~>  = \ f g -> F-map->~>Help f g
     } where 
-      help : {T : I -> Set} (i : I)
+      F-map-id~>Help : {T : I -> Set} (i : I)
          (x : Interior C T i) ->
        interior (\ i x -> x) i x == x
+      F-map-id~>Help i x = 
+        interiorFold (\ i x -> tile x) (\ i -> <_>) i x 
+        =[ interiorFoldLemma 
+          (\ i x -> tile x)  (\ i -> <_>)  (\ i x -> x) 
+          (\ i p -> refl (tile p)) (\ i c ps -> refl <_> =$= (refl (c 8><_) =$= (allId~> (inners c) ps))) i x 
+        >= x [QED]
 
-      -- TODO : merge two branches
-      help i (tile x) = refl (tile x)
-      help i < cut 8>< pieces > = 
-        interior (\ i x -> x) i < cut 8>< pieces >
-        =[ refl _ >= interiorBind (\ i x -> tile x) i < cut 8>< pieces >
-        =[ refl _ >= interiorFold (\ i x -> tile x) (\ i -> <_>) i < cut 8>< pieces >
-        =[ refl <_> =$= (refl (cut 8><_) =$= (allInteriorFoldLaw (\ i x -> tile x) (\ i -> <_>) =$ (inners cut) =$ pieces ))  >= 
-        < cut 8>< all (interiorFold (\ i x -> tile x) (\ i -> <_>)) (inners cut) pieces >
-        =[ refl <_> =$= (refl (cut 8><_) =$= 
-          allinteriorFoldLemma 
-            (\ i x -> tile x)  (\ i -> <_>)  (\ i x -> x) 
-            (\ i p -> refl (tile p)) (\ i cut ps -> refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) ps)))
-            (inners cut) pieces
-          )>=
-        < cut 8>< all (\ i x -> x) (inners cut) pieces >
-        =[ refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) pieces)) >=
-        < cut 8>< pieces > [QED]
-      help' : {R S T : I -> Set}
+      F-map->~>Help : {R S T : I -> Set}
           (rs : [ R -:> S ]) (st : [ S -:> T ]) -> 
         interior (\  i x -> st i (rs i x)) ==
           (\  i x -> interior st i (interior rs i x))
-      help' rs st = 
+      F-map->~>Help rs st = 
         interior (\  i x -> st i (rs i x))
-        =[ refl _ >=
-        interiorBind (\ i -> \ x -> tile (st i (rs i x)))
-        =[ refl _ >=
-        interiorFold (\ i -> \ x -> tile (st i (rs i x))) (\ i -> <_>)
         =[ sym (interiorFoldFusion rs (\ i x -> tile (st i x)) (\ i -> <_>))  >=
-        (\ i x -> interiorFold (\ i x -> tile (st i x)) (\ i -> <_>) i (interior rs i x))
-        =< refl _ ]=
-        (\ i x -> interiorBind (\  i x -> tile (st i x)) i (interior rs i x))
-        =< refl _  ]=
         (\ i x -> interior st i (interior rs i x))
         [QED]
       open _=>_ (ALL I)
@@ -781,15 +759,9 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
        interior f i (interiorBind (\ i x -> x) i x)
     naturalityHelp f i x =
       interiorBind (\ i x -> x) i (interior (interior f) i x)
-      =[ refl _ >= 
-      interiorFold (\ i x -> x) (\ i -> <_>) i (interior (interior f) i x)
       =[ interiorFoldFusion (interior f) (\ i x -> x) (\ i -> <_>) =$ i =$ x >=
-      interiorFold (\ i x -> ((interior f) i x)) (\ i -> <_>) i x 
-      =[ refl _ >=
       interiorFold (\ i x -> interiorFold (\ i x -> tile (f i x)) (\ i -> <_>) i x) (\ i -> <_>) i x
       =< interiorBindFusion (λ i₁ x₁ → x₁) (\ i x -> tile (f i x)) (\ i -> <_>) =$ i =$ x ]=
-      interiorFold (\ i x -> tile (f i x)) (\ i -> <_>) i (interiorBind (λ i₁ x₁ → x₁) i x) 
-      =< refl _ ]= 
       interior f i (interiorBind (\ i x -> x) i x) 
       [QED]
 
@@ -807,8 +779,6 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
       interiorBind (\ i x -> x) i (interior (\ i x -> tile x) i x) == x
     multUnitHelp i x = 
       interiorBind (\ i x -> x) i (interior (\ i x -> tile x) i x)
-      =[ refl _ >=
-      interiorFold (\ i x -> x) (\ i -> <_>) i (interior (\ i x -> tile x) i x)
       =[ ( (interiorFoldFusion (\ i x -> tile x) (\ i x -> x) (\ i -> <_>))) =$ i =$ x >=
       interiorFold (\ i x -> tile x) (\ i -> <_>) i x
       =[ interiorFoldLemma 
@@ -822,14 +792,10 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
           interiorBind (\ i x -> x) i (interior (interiorBind (\ i x -> x)) i x)
     multMultHelp i x =
       interiorBind (\ i x -> x) i  (interiorBind (\ i x -> x) i x)
-      =[ refl _ >= 
-      interiorFold (\ i x -> x) (\ i -> <_>) i (interiorBind (\ i x -> x) i x)
       =[ interiorBindFusion (\ i x -> x) (\ i x -> x) (\ i -> <_>) =$ i =$ x >= 
       interiorFold (\ i x -> ((interiorBind (\ i x -> x)) i x)) (\ i -> <_>) i x
       =< interiorFoldFusion (interiorBind (\ i x -> x)) (\ i x -> x) (\ i -> <_>) =$ i =$ x ]=
       interiorFold (\ i x -> x) (\ i -> <_>) i (interior (interiorBind (\ i x -> x)) i x)
-      =< refl _ ]=
-      interiorBind (\ i x -> x) i (interior (interiorBind (\ i x -> x)) i x)
       [QED]
     open _=>_ INTERIOR
 
