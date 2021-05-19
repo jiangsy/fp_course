@@ -185,7 +185,7 @@ LIST+L {X}{Y} f = record
 SINGLE : ID ~~> LIST
 SINGLE = record
   { xf          = \ x -> x ,- []      -- turn a value into a singleton list
-  ; naturality  = \  f -> refl (\  x -> f x ,- [])
+  ; naturality  = \ f -> refl (\  x -> f x ,- [])
   }
 
 --??--------------------------------------------------------------------------
@@ -209,11 +209,11 @@ concat (xs ,- xss) = xs +L concat xss
 CONCAT : (LIST >=> LIST) ~~> LIST
 CONCAT = record
   { xf          = concat
-  ; naturality  = \ f -> extensionality \ xss -> concatNaturality f xss
+  ; naturality  = \ f -> extensionality \ xss -> naturalityHelp f xss
   } where 
-  concatNaturality : {X Y : Set} -> (f : X -> Y) -> (xss : List (List X)) -> concat (list (list f) xss) == list f (concat xss)
-  concatNaturality f [] = refl []
-  concatNaturality f (xs ,- xss) rewrite concatNaturality f xss rewrite mapConcat f xs (concat xss) = refl (list f (xs +L concat xss))
+  naturalityHelp : {X Y : Set} -> (f : X -> Y) -> (xss : List (List X)) -> concat (list (list f) xss) == list f (concat xss)
+  naturalityHelp f [] = refl []
+  naturalityHelp f (xs ,- xss) rewrite naturalityHelp f xss rewrite mapConcat f xs (concat xss) = refl (list f (xs +L concat xss))
   -- useful helper proofs (lemmas) go here
 
 --??--------------------------------------------------------------------------
@@ -773,37 +773,64 @@ module INTERIOR {I : Set}{C : I |> I} where  -- fix some C...
   FLATTEN = record
     { -- xf      = \ i x -> interiorFold (\ i x -> x) cut' i x
       xf         = interiorBind (\ i x -> x)
-    ; naturality = \ f -> extensionality \ i -> extensionality \ x -> help f i x
+    ; naturality = \ f -> extensionality \ i -> extensionality \ x -> naturalityHelp f i x
     } where
-    help : {X Y : I -> Set}
+    naturalityHelp : {X Y : I -> Set}
          (f : [ X -:> Y ]) (i : I) (x :  Interior C (Interior C X) i ) ->
        interiorBind (\ i x -> x) i (interior (interior f) i x) ==
        interior f i (interiorBind (\ i x -> x) i x)
-    help f i x = {!   !}
+    naturalityHelp f i x =
+      interiorBind (\ i x -> x) i (interior (interior f) i x)
+      =[ refl _ >= 
+      interiorFold (\ i x -> x) (\ i -> <_>) i (interior (interior f) i x)
+      =[ interiorFoldFusion (interior f) (\ i x -> x) (\ i -> <_>) =$ i =$ x >=
+      interiorFold (\ i x -> ((interior f) i x)) (\ i -> <_>) i x 
+      =[ refl _ >=
+      interiorFold (\ i x -> interiorFold (\ i x -> tile (f i x)) (\ i -> <_>) i x) (\ i -> <_>) i x
+      =< interiorBindFusion (λ i₁ x₁ → x₁) (\ i x -> tile (f i x)) (\ i -> <_>) =$ i =$ x ]=
+      interiorFold (\ i x -> tile (f i x)) (\ i -> <_>) i (interiorBind (λ i₁ x₁ → x₁) i x) 
+      =< refl _ ]= 
+      interior f i (interiorBind (\ i x -> x) i x) 
+      [QED]
 
   INTERIOR-Monad : Monad
   INTERIOR-Monad = record
     { unit = WRAP
     ; mult = FLATTEN
     ; unitMult = extensionality \ i -> extensionality \ x -> refl x
-    ; multUnit = extensionality \ i -> extensionality \ x -> help i x
-    ; multMult = {!!}
+    ; multUnit = extensionality \ i -> extensionality \ x -> multUnitHelp i x
+    ; multMult = extensionality \ i -> extensionality \ x -> multMultHelp i x
     } where
 
-    help : {X : I -> Set } (i : I)
+    multUnitHelp : {X : I -> Set } (i : I)
          (x : Interior C X i ) ->
       interiorBind (\ i x -> x) i (interior (\ i x -> tile x) i x) == x
-    help i x = 
-      interiorBind (λ i₁ x₁ → x₁) i (interior (λ i₁ x₁ → tile x₁) i x)
+    multUnitHelp i x = 
+      interiorBind (\ i x -> x) i (interior (\ i x -> tile x) i x)
       =[ refl _ >=
-      interiorFold (λ i₁ x₁ → x₁) (\ i -> <_>) i (interior (λ i₁ x₁ → tile x₁) i x)
+      interiorFold (\ i x -> x) (\ i -> <_>) i (interior (\ i x -> tile x) i x)
       =[ ( (interiorFoldFusion (\ i x -> tile x) (\ i x -> x) (\ i -> <_>))) =$ i =$ x >=
-      interiorFold (λ i x → tile x) (λ i → <_>) i x
+      interiorFold (\ i x -> tile x) (\ i -> <_>) i x
       =[ interiorFoldLemma 
             (\ i x -> tile x)  (\ i -> <_>)  (\ i x -> x) 
             (\ i p -> refl (tile p)) (\ i cut ps -> refl <_> =$= (refl (cut 8><_) =$= (allId~> (inners cut) ps))) i x >=
       x [QED]
 
+    multMultHelp :  {X : Category.Obj (I ->SET)} (i : I)
+       (x : Interior C (Interior C (Interior C X)) i ) -> 
+       interiorBind (\ i x -> x) i  (interiorBind (\ i x -> x) i x) ==
+          interiorBind (\ i x -> x) i (interior (interiorBind (\ i x -> x)) i x)
+    multMultHelp i x =
+      interiorBind (\ i x -> x) i  (interiorBind (\ i x -> x) i x)
+      =[ refl _ >= 
+      interiorFold (\ i x -> x) (\ i -> <_>) i (interiorBind (\ i x -> x) i x)
+      =[ interiorBindFusion (\ i x -> x) (\ i x -> x) (\ i -> <_>) =$ i =$ x >= 
+      interiorFold (\ i x -> ((interiorBind (\ i x -> x)) i x)) (\ i -> <_>) i x
+      =< interiorFoldFusion (interiorBind (\ i x -> x)) (\ i x -> x) (\ i -> <_>) =$ i =$ x ]=
+      interiorFold (\ i x -> x) (\ i -> <_>) i (interior (interiorBind (\ i x -> x)) i x)
+      =< refl _ ]=
+      interiorBind (\ i x -> x) i (interior (interiorBind (\ i x -> x)) i x)
+      [QED]
     open _=>_ INTERIOR
 
 --??--------------------------------------------------------------------------
@@ -903,13 +930,14 @@ vecAll {is = x ,- is} (ps , pss) = vec _,_ ps $V vecAll {is = is} pss
 VecLiftAlg : {I : Set}(C : I |> I){X : I -> Set}
              (alg : Algebra (CUTTING C) X){n : Nat} ->
              Algebra (CUTTING C) (\ i -> Vec (X i) n)
-VecLiftAlg C alg {n} i (c 8>< pss) = help i (vecAll pss) alg
+VecLiftAlg record { Cuts = Cuts ; inners = inners } alg {n} i (c 8>< pss) = VecLiftAlgHelp alg i c (vecAll pss)
   where 
-    help : ∀ {I} {C : I |> I} {X : I → Set} {n} (i : I)
-            {cut = c : _|>_.Cuts C i} →
-          Vec (All X (_|>_.inners C c)) n → ((i₂ : I) → Cutting C X i₂ → X i₂) → Vec (X i) n
-    help i {cut = c} [] alg = []
-    help i {cut = c} (ps ,- pss) alg = alg i (c 8>< ps) ,- help i {cut = c} pss alg
+    VecLiftAlgHelp : ∀ {I} {Cuts : I -> Set} {inners : {o : I} -> Cuts o -> List I}
+            {X : I -> Set} {n} -> ((i : I) -> Cutting (record { Cuts = Cuts ; inners = inners }) X i -> X i) ->
+          (i : I) (c : Cuts i) -> Vec (All X (inners c)) n -> Vec (X i) n
+    VecLiftAlgHelp alg i c [] = []
+    VecLiftAlgHelp alg i c (ps ,- pss) = alg i (c 8>< ps) ,- VecLiftAlgHelp alg i c pss
+
 
 NatCut2DMatAlg : {X : Set} -> Algebra (CUTTING NatCut2D) (Matrix X)
 NatCut2DMatAlg {x} (i , j) (inl (i1 , i2 , i1+i2=i) 8>< mi1 , mi2 , _) rewrite (sym i1+i2=i) = (vec _+V_ mi1) $V mi2
