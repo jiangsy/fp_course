@@ -2243,6 +2243,51 @@ Proof.
       * specialize (IHc st st' st'0 SBreak SBreak Hc1 Hc2). inversion IHc. auto.
 Qed.
 
+Ltac apply_ceval_deter_ih c :=
+  match goal with
+  | H1: forall st st1 st2 s1 s2, st =[ c ]=> st1 / s1 -> st =[ c ]=> st2 / s2 -> ?L1 = ?R1 /\ ?L2 = ?R2,
+    H2: ?ST =[ c ]=> ?ST1 / SBreak,
+    H3: ?ST =[ c ]=> ?ST2 / SContinue
+    |- _ => specialize (H1 ST ST1 ST2 SBreak SContinue H2 H3) as HContra; inversion HContra; discriminate
+  | H1: forall st st1 st2 s1 s2, st =[ c ]=> st1 / s1 -> st =[ c ]=> st2 / s2 -> ?L1 = ?R1 /\ ?L2 = ?R2,
+    H2: ?ST =[ c ]=> ?ST1 / ?S1,
+    H3: ?ST =[ c ]=> ?ST2 / ?S2
+    |- _ => specialize (H1 ST ST1 ST2 S1 S2 H2 H3); try assumption
+  end.
+
+Theorem ceval_deterministic_auto: forall (c:com) st st1 st2 s1 s2,
+     st =[ c ]=> st1 / s1 ->
+     st =[ c ]=> st2 / s2 ->
+     st1 = st2 /\ s1 = s2.
+Proof.
+  intro c. induction c; intros st st1 st2 s1 s2 Hc1 Hc2; try solve [inversion Hc1; inversion Hc2; subst; auto].
+  - (* Seq *) inversion Hc1; inversion Hc2; subst.
+    + apply_ceval_deter_ih c1. inversion IHc1. subst.
+      apply_ceval_deter_ih c2.
+    + apply_ceval_deter_ih c1.
+    + apply_ceval_deter_ih c1. 
+    + apply_ceval_deter_ih c1.
+  - destruct (beval st b); inversion Hc1; inversion Hc2; subst; try rewrite H5 in H13; try discriminate.
+    + apply_ceval_deter_ih c1.
+    + apply_ceval_deter_ih c2.
+    + apply_ceval_deter_ih c1.
+    + apply_ceval_deter_ih c2.
+  - remember <{ while b do c end }> as c1While. induction Hc1; inversion Heqc1While; subst.
+    + inversion Hc2.
+      * auto.
+      * rewrite H in H2. discriminate.
+      * rewrite H in H2. discriminate.
+    + remember <{ while b do c end }> as c2While. induction Hc2; inversion Heqc2While; subst.
+      * rewrite H in H0. discriminate.
+      * apply_ceval_deter_ih c.
+        inversion IHc. apply IHHc1_2. auto. rewrite H1 in Hc2_2. assumption.
+      * apply_ceval_deter_ih c. 
+    + remember <{ while b do c end }> as c2While. induction Hc2; inversion Heqc2While; subst.
+      * rewrite H in H0. discriminate.
+      * apply_ceval_deter_ih c. 
+      * apply_ceval_deter_ih c. inversion IHc. auto.
+Qed.
+
 
 (** [] *)
 End BreakImp.
