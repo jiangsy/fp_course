@@ -1,4 +1,4 @@
-(* coq 8.14 *)
+(* coq 8.13 *)
 Require Import Coq.Lists.List.
 Require Import Arith List Lia Program.
 
@@ -751,10 +751,7 @@ Section dec_star.
   Qed.
 
   Section dec_star''.
-
-    Notation "'Yes'" := (left _ _) : specif_scope.
-    Notation "'No'" := (right _ _) : specif_scope.
-    Notation "'Reduce' x" := (if x then Yes else No) (at level 50) : specif_scope.
+  
     Variable n : nat.
 
     Variable P' : string -> Prop.
@@ -796,8 +793,6 @@ Section dec_star.
     -> length s - n > 0.
     crush.
   Qed.
-
-    (* Hint Resolve star_length_contra star_length_flip substring_suffix_emp. *)
 
   Definition dec_star' : forall n n', length s - n' <= n ->
     {star P (substring n' (length s - n') s)} +
@@ -844,6 +839,7 @@ Definition matches : forall P (r : regexp P) s, {P s} + {~ P s}.
     end); crush.
     - specialize (o x x0 (eq_refl (x ++ x0))); crush.
   Defined.
+
 
 Example a_star := Star (Char "a"%char).
 Eval hnf in matches a_star "".
